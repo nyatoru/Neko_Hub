@@ -1392,6 +1392,15 @@ local function applyCameraFOV()
     end
 end
 
+RunService.RenderStepped:Connect(function()
+    if PlayerConfig.FOVEnabled then
+        local cam = workspace.CurrentCamera
+        if cam and cam.FieldOfView ~= PlayerConfig.FOV then
+            cam.FieldOfView = PlayerConfig.FOV
+        end
+    end
+end)
+
 -- Apply on respawn
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
