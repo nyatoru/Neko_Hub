@@ -510,6 +510,7 @@ local espMasterEnabled = false
 local espShowDistance = true
 local espShowName = true
 local espShowGenPercent = true
+local espHideDoneGen = false
 local espPlayerState = false
 
 local COLOR_DOWNED = Color3.fromRGB(255, 0, 0)
@@ -759,6 +760,16 @@ local function applyGen(model: Model)
     local function upd()
         local p = tonumber(model:GetAttribute("RepairProgress")) or 0
         local regress = model:GetAttribute("Regressing")
+        local done = p >= 100
+        -- Hide finished generators
+        if espHideDoneGen and done then
+            if hl then hl.Enabled = false end
+            if bill then bill.Enabled = false end
+            return
+        elseif hl then
+            hl.Enabled = true
+        end
+        if bill then bill.Enabled = true end
         -- Lerp color from base to done based on progress
         local cp = math.clamp(p, 0, 100)
         local genColor = espColors.Generator:Lerp(COLOR_GEN_DONE, cp / 100)
@@ -1064,6 +1075,10 @@ end
 
 function ESP.SetShowGenPercent(enabled: boolean)
     espShowGenPercent = enabled
+end
+
+function ESP.SetHideDoneGen(enabled: boolean)
+    espHideDoneGen = enabled
 end
 
 function ESP.SetPlayerState(enabled: boolean)

@@ -175,6 +175,17 @@ ESPSection:Toggle({
 })
 
 ESPSection:Toggle({
+    Title = "Hide Done Generator",
+    Desc = "Hide generator ESP when fully repaired (100%)",
+    Value = false,
+    Callback = function(value: boolean)
+        if ESP and ESP.SetHideDoneGen then
+            ESP.SetHideDoneGen(value)
+        end
+    end
+})
+
+ESPSection:Toggle({
     Title = "Player State",
     Desc = "Change color and show state for downed players",
     Value = false,
