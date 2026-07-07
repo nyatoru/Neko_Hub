@@ -310,7 +310,7 @@ AimSection:Toggle({
 
 AimSection:Slider({
     Title = "FOV Radius",
-    Value = { Min = 50, Max = 300, Default = 120 },
+    Value = { Min = 30, Max = 300, Default = 120 },
     Callback = function(value: number)
         if Aim and Aim.SetFovRadius then
             Aim.SetFovRadius(value)
