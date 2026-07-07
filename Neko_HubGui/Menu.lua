@@ -41,10 +41,11 @@ local ESP = Logic and Logic.ESP
 local Aim = Logic and Logic.Aim
 
 -- Create Tabs
-local ThemeTab = Window:Tab({ Title = "Theme", Icon = "palette" })
-local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
 local VisualTab = Window:Tab({ Title = "Visual", Icon = "eye" })
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
 local AimTab = Window:Tab({ Title = "Aim", Icon = "crosshair" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
+local ThemeTab = Window:Tab({ Title = "Theme", Icon = "palette" })
 
 -- Combat Tab Sections (Tidied and organized)
 local ParrySection = CombatTab:Section({ Title = "Auto Parry Settings" })
@@ -129,12 +130,118 @@ ESPSection:Toggle({
 ESPSection:Dropdown({
     Title = "Select Esp",
     Desc = "Choose which ESP elements to display",
-    Values = { "Player", "Generator", "Pallet", "Zombie" },
+    Values = { "Player", "Generator", "Pallet", "Window", "Zombie" },
     Value = {},
     Multi = true,
     Callback = function(values: { string })
         if ESP and ESP.SetSelectedKinds then
             ESP.SetSelectedKinds(values)
+        end
+    end
+})
+
+ESPSection:Toggle({
+    Title = "Show Distance",
+    Desc = "Show distance on ESP labels",
+    Value = true,
+    Callback = function(value: boolean)
+        if ESP and ESP.SetShowDistance then
+            ESP.SetShowDistance(value)
+        end
+    end
+})
+
+ESPSection:Toggle({
+    Title = "Show Name",
+    Desc = "Show name on ESP labels",
+    Value = true,
+    Callback = function(value: boolean)
+        if ESP and ESP.SetShowName then
+            ESP.SetShowName(value)
+        end
+    end
+})
+
+ESPSection:Toggle({
+    Title = "Show Generator Percent",
+    Desc = "Show repair progress on generator ESP",
+    Value = true,
+    Callback = function(value: boolean)
+        if ESP and ESP.SetShowGenPercent then
+            ESP.SetShowGenPercent(value)
+        end
+    end
+})
+
+ESPSection:Toggle({
+    Title = "Player State",
+    Desc = "Change color and show state for downed players",
+    Value = false,
+    Callback = function(value: boolean)
+        if ESP and ESP.SetPlayerState then
+            ESP.SetPlayerState(value)
+        end
+    end
+})
+
+local ESPColorSection = VisualTab:Section({ Title = "ESP Colors" })
+
+ESPColorSection:ColorPicker({
+    Title = "Generator Color",
+    Default = Color3.fromRGB(255, 170, 0),
+    Callback = function(value: Color3)
+        if ESP and ESP.SetColor then
+            ESP.SetColor("Generator", value)
+        end
+    end
+})
+
+ESPColorSection:ColorPicker({
+    Title = "Pallet Color",
+    Default = Color3.fromRGB(255, 215, 0),
+    Callback = function(value: Color3)
+        if ESP and ESP.SetColor then
+            ESP.SetColor("Pallet", value)
+        end
+    end
+})
+
+ESPColorSection:ColorPicker({
+    Title = "Window Color",
+    Default = Color3.fromRGB(74, 255, 181),
+    Callback = function(value: Color3)
+        if ESP and ESP.SetColor then
+            ESP.SetColor("Window", value)
+        end
+    end
+})
+
+ESPColorSection:ColorPicker({
+    Title = "Zombie Color",
+    Default = Color3.fromRGB(255, 60, 60),
+    Callback = function(value: Color3)
+        if ESP and ESP.SetColor then
+            ESP.SetColor("SCP", value)
+        end
+    end
+})
+
+ESPColorSection:ColorPicker({
+    Title = "Player Color",
+    Default = Color3.fromRGB(0, 255, 170),
+    Callback = function(value: Color3)
+        if ESP and ESP.SetColor then
+            ESP.SetColor("Player", value)
+        end
+    end
+})
+
+ESPColorSection:ColorPicker({
+    Title = "Downed Player Color",
+    Default = Color3.fromRGB(255, 0, 0),
+    Callback = function(value: Color3)
+        if ESP and ESP.SetColor then
+            ESP.SetColor("PlayerDowned", value)
         end
     end
 })
@@ -286,6 +393,51 @@ AimVeilSection:Toggle({
     Callback = function(value: boolean)
         if Aim and Aim.SetVeilEnableLead then
             Aim.SetVeilEnableLead(value)
+        end
+    end
+})
+
+-- Player Tab Sections
+local PlayerSection = PlayerTab:Section({ Title = "Camera Settings" })
+
+PlayerSection:Toggle({
+    Title = "Unlimited Zoom",
+    Desc = "Unlock camera zoom distance",
+    Value = false,
+    Callback = function(value: boolean)
+        if Player and Player.SetUnlimitedZoom then
+            Player.SetUnlimitedZoom(value)
+        end
+    end
+})
+
+PlayerSection:Slider({
+    Title = "Max Zoom Distance",
+    Value = { Min = 100, Max = 5000, Default = 1000 },
+    Callback = function(value: number)
+        if Player and Player.SetMaxZoomDistance then
+            Player.SetMaxZoomDistance(value)
+        end
+    end
+})
+
+PlayerSection:Toggle({
+    Title = "Custom FOV",
+    Desc = "Override default field of view",
+    Value = false,
+    Callback = function(value: boolean)
+        if Player and Player.SetCustomFOV then
+            Player.SetCustomFOV(value)
+        end
+    end
+})
+
+PlayerSection:Slider({
+    Title = "Camera FOV",
+    Value = { Min = 40, Max = 120, Default = 70 },
+    Callback = function(value: number)
+        if Player and Player.SetFOV then
+            Player.SetFOV(value)
         end
     end
 })

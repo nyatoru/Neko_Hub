@@ -504,14 +504,16 @@ task.spawn(resolveGeneratorRemotes)
 -- VISUAL (ESP) MODULE
 -- =====================================================================
 
-local COLOR_GEN     = Color3.fromRGB(85, 255, 85)
-local COLOR_PALLET  = Color3.fromRGB(255, 215, 0)
+local COLOR_GEN      = Color3.fromRGB(255, 170, 0)
+local COLOR_GEN_DONE = Color3.fromRGB(0, 255, 120)
+local COLOR_PALLET   = Color3.fromRGB(255, 215, 0)
+local COLOR_WINDOW  = Color3.fromRGB(74, 255, 181)
 local COLOR_ZOMBIE  = Color3.fromRGB(255, 60, 60)
 local COLOR_PLAYER  = Color3.fromRGB(0, 255, 170)
 local COLOR_KILLER  = Color3.fromRGB(255, 60, 60)
 local COLOR_OUTLINE = Color3.fromRGB(255, 255, 255)
 
-type ESPKind = "Generator" | "Pallet" | "SCP" | "Player"
+type ESPKind = "Generator" | "Pallet" | "Window" | "SCP" | "Player"
 
 type TrackedEntry = {
     hl: Highlight?,
@@ -527,9 +529,26 @@ type TrackedEntry = {
 local ESP = {}
 
 local espMasterEnabled = false
+local espShowDistance = true
+local espShowName = true
+local espShowGenPercent = true
+local espPlayerState = false
+
+local COLOR_DOWNED = Color3.fromRGB(255, 0, 0)
+
+local espColors: { [string]: Color3 } = {
+    Generator = COLOR_GEN,
+    Pallet = COLOR_PALLET,
+    Window = COLOR_WINDOW,
+    SCP = COLOR_ZOMBIE,
+    Player = COLOR_PLAYER,
+    PlayerDowned = COLOR_DOWNED,
+}
+
 local selectedKinds: { [string]: boolean } = {
     Generator = false,
     Pallet = false,
+    Window = false,
     SCP = false,
     Player = false
 }
@@ -537,6 +556,7 @@ local selectedKinds: { [string]: boolean } = {
 local activeKinds: { [string]: boolean } = {
     Generator = false,
     Pallet = false,
+    Window = false,
     SCP = false,
     Player = false
 }
@@ -545,6 +565,7 @@ local tracked: { [Instance]: TrackedEntry } = {}
 local connsByKind: { [string]: { RBXScriptConnection } } = {
     Generator = {},
     Pallet = {},
+    Window = {},
     SCP = {},
     Player = {}
 }
@@ -640,9 +661,64 @@ local function ensureDistLoop()
             if root then
                 local rootPos = root.Position
                 for _, t in pairs(tracked) do
-                    if t.wantDist and t.sub and t.anchor and t.anchor.Parent then
-                        local dist = math.floor((t.anchor.Position - rootPos).Magnitude)
-                        t.sub.Text = string.format("[%dm]", dist)
+                    if t.sub and t.anchor and t.anchor.Parent then
+                        if t.wantDist and espShowDistance then
+                            local dist = math.floor((t.anchor.Position - rootPos).Magnitude)
+                            t.sub.Text = string.format("[%dm]", dist)
+                        elseif not espShowDistance then
+                            t.sub.Text = ""
+                        end
+                    end
+                    if t.nameL then
+                        t.nameL.Visible = espShowName
+                    end
+                    -- Player state: check if downed and update color/name
+                    if espPlayerState and t.kind == "Player" and t.anchor and t.anchor.Parent then
+                        local plrChar = t.anchor:FindFirstAncestorOfClass("Model")
+                        if plrChar then
+                            local hum = plrChar:FindFirstChildOfClass("Humanoid")
+                            local isDowned = false
+                            if hum then
+                                isDowned = hum.Health <= 0
+                                    or hum.Health < 2
+                                    or plrChar:GetAttribute("Downed") == true
+                                    or plrChar:GetAttribute("IsDown") == true
+                                    or plrChar:GetAttribute("Knocked") == true
+                            end
+                            if isDowned then
+                                if t.hl then
+                                    t.hl.FillColor = espColors.PlayerDowned
+                                    t.hl.OutlineColor = espColors.PlayerDowned
+                                end
+                                if t.nameL then
+                                    local baseName = t.nameL.Text:gsub("^.- ", "")
+                                    if not t.nameL.Text:find("^DOWN") then
+                                        t.nameL.Text = "DOWN " .. baseName
+                                    end
+                                    t.nameL.TextColor3 = espColors.PlayerDowned
+                                end
+                            else
+                                -- Restore original color
+                                local origCol = espColors.Player
+                                local plr = Players:GetPlayerFromCharacter(plrChar)
+                                if plr then
+                                    if plr.Team and (string.find(string.lower(plr.Team.Name), "killer") or string.find(string.lower(plr.Team.Name), "hunter")) then
+                                        origCol = COLOR_KILLER
+                                    elseif plr:GetAttribute("Role") == "Killer" or plr:GetAttribute("Killer") then
+                                        origCol = COLOR_KILLER
+                                    end
+                                end
+                                if t.hl then
+                                    t.hl.FillColor = origCol
+                                    t.hl.OutlineColor = origCol
+                                end
+                                if t.nameL then
+                                    local baseName = t.nameL.Text:gsub("^DOWN ", "")
+                                    t.nameL.Text = baseName
+                                    t.nameL.TextColor3 = origCol
+                                end
+                            end
+                        end
                     end
                 end
             end
@@ -671,21 +747,34 @@ local function applyGen(model: Model)
     local anchor = anchorGen(model)
     if not anchor then return end
     
-    local hl = mkHighlight(model, COLOR_GEN)
-    local bill, _, sub = mkBillboard(anchor, COLOR_GEN, "Generator")
+    local color = espColors.Generator
+    local hl = mkHighlight(model, color)
+    local bill, nameL, sub = mkBillboard(anchor, color, "Generator")
     
     local function upd()
         local p = tonumber(model:GetAttribute("RepairProgress")) or 0
         local regress = model:GetAttribute("Regressing")
-        sub.Text = string.format("[%d%%]%s", math.floor(p), regress and " \u{2193}" or "")
-        sub.TextColor3 = regress and Color3.fromRGB(255, 120, 120) or Color3.fromRGB(120, 255, 120)
+        -- Lerp color from base to done based on progress
+        local cp = math.clamp(p, 0, 100)
+        local genColor = espColors.Generator:Lerp(COLOR_GEN_DONE, cp / 100)
+        if hl then
+            hl.FillColor = genColor
+            hl.OutlineColor = genColor
+        end
+        if nameL then nameL.TextColor3 = genColor end
+        if espShowGenPercent then
+            sub.Text = string.format("[%d%%]%s", math.floor(p), regress and " \u{2193}" or "")
+            sub.TextColor3 = regress and Color3.fromRGB(255, 120, 120) or Color3.fromRGB(120, 255, 120)
+        else
+            sub.Text = ""
+        end
     end
     upd()
     
     local pc1 = model:GetAttributeChangedSignal("RepairProgress"):Connect(upd)
     local pc2 = model:GetAttributeChangedSignal("Regressing"):Connect(upd)
     
-    tracked[model] = { hl = hl, bill = bill, anchor = anchor, sub = sub, progConns = { pc1, pc2 }, kind = "Generator" }
+    tracked[model] = { hl = hl, bill = bill, anchor = anchor, nameL = nameL, sub = sub, progConns = { pc1, pc2 }, kind = "Generator" }
 end
 
 local function startGenerator()
@@ -736,9 +825,10 @@ local function applyPallet(model: Model)
     if tracked[model] then return end
     local anchor = pickPlank(model)
     if not anchor then return end
-    local hl = mkHighlight(model, COLOR_PALLET)
-    local bill, _, sub = mkBillboard(anchor, COLOR_PALLET, "Pallet")
-    tracked[model] = { hl = hl, bill = bill, anchor = anchor, sub = sub, wantDist = true, kind = "Pallet" }
+    local color = espColors.Pallet
+    local hl = mkHighlight(model, color)
+    local bill, nameL, sub = mkBillboard(anchor, color, "Pallet")
+    tracked[model] = { hl = hl, bill = bill, anchor = anchor, nameL = nameL, sub = sub, wantDist = true, kind = "Pallet" }
 end
 
 local function startPallet()
@@ -770,6 +860,39 @@ local function startPallet()
     ensureDistLoop()
 end
 
+-- Window ESP
+local function applyWindow(model: Model)
+    if tracked[model] then return end
+    local anchor = model:FindFirstChildWhichIsA("BasePart") :: BasePart?
+    if not anchor then return end
+    local color = espColors.Window
+    local hl = mkHighlight(model, color)
+    local bill, nameL, sub = mkBillboard(anchor, color, "Window")
+    tracked[model] = { hl = hl, bill = bill, anchor = anchor, nameL = nameL, sub = sub, wantDist = true, kind = "Window" }
+end
+
+local function startWindow()
+    local Map = Workspace:FindFirstChild("Map")
+    if not Map then return end
+    for _, m in ipairs(Map:GetDescendants()) do
+        if m:IsA("Model") and m.Name == "Window" then
+            applyWindow(m)
+            hookRemoval(m, "Window")
+        end
+    end
+    pushConn("Window", Map.DescendantAdded:Connect(function(desc)
+        if isKindActive("Window") and desc:IsA("Model") and desc.Name == "Window" then
+            task.defer(function()
+                if isKindActive("Window") and desc.Parent and not tracked[desc] then
+                    applyWindow(desc)
+                    hookRemoval(desc, "Window")
+                end
+            end)
+        end
+    end))
+    ensureDistLoop()
+end
+
 -- SCP / Zombie ESP
 local function anchorZombie(model: Model): BasePart?
     local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("Head")
@@ -787,9 +910,10 @@ local function applyZombie(model: Model)
     if not anchor then return end
     local nameLower = string.lower(model.Name)
     local labelText = string.find(nameLower, "scp") and "Zombie" or model.Name
-    local hl = mkHighlight(model, COLOR_ZOMBIE)
-    local bill, _, sub = mkBillboard(anchor, COLOR_ZOMBIE, labelText)
-    tracked[model] = { hl = hl, bill = bill, anchor = anchor, sub = sub, wantDist = true, kind = "SCP" }
+    local color = espColors.SCP
+    local hl = mkHighlight(model, color)
+    local bill, nameL, sub = mkBillboard(anchor, color, labelText)
+    tracked[model] = { hl = hl, bill = bill, anchor = anchor, nameL = nameL, sub = sub, wantDist = true, kind = "SCP" }
 end
 
 local function startZombie()
@@ -848,10 +972,15 @@ local function applyPlayer(char: Model, plr: Player)
     if tracked[char] then return end
     local anchor = anchorPlayer(char)
     if not anchor then return end
-    local col = playerColor(plr)
+    local col = espColors.Player
+    if plr.Team and (string.find(string.lower(plr.Team.Name), "killer") or string.find(string.lower(plr.Team.Name), "hunter")) then
+        col = COLOR_KILLER
+    elseif plr:GetAttribute("Role") == "Killer" or plr:GetAttribute("Killer") then
+        col = COLOR_KILLER
+    end
     local hl = mkHighlight(char, col)
     local bill, nameL, sub = mkBillboard(anchor, col, plr.Name)
-    tracked[char] = { hl = hl, bill = bill, anchor = anchor, sub = sub, nameL = nameL, wantDist = true, kind = "Player" }
+    tracked[char] = { hl = hl, bill = bill, anchor = anchor, nameL = nameL, sub = sub, wantDist = true, kind = "Player" }
 end
 
 local function startPlayer()
@@ -883,6 +1012,7 @@ local starters = {
     Player = startPlayer,
     Generator = startGenerator,
     Pallet = startPallet,
+    Window = startWindow,
     SCP = startZombie
 }
 
@@ -901,7 +1031,7 @@ Workspace.ChildAdded:Connect(function(child)
 end)
 
 function ESP.UpdateStates()
-    for _, kind in ipairs({"Generator", "Pallet", "SCP", "Player"}) do
+    for _, kind in ipairs({"Generator", "Pallet", "Window", "SCP", "Player"}) do
         local shouldBeActive = espMasterEnabled and (selectedKinds[kind] == true)
         if shouldBeActive ~= activeKinds[kind] then
             activeKinds[kind] = shouldBeActive
@@ -919,10 +1049,46 @@ function ESP.SetMasterEnabled(enabled: boolean)
     ESP.UpdateStates()
 end
 
+function ESP.SetShowDistance(enabled: boolean)
+    espShowDistance = enabled
+end
+
+function ESP.SetShowName(enabled: boolean)
+    espShowName = enabled
+end
+
+function ESP.SetShowGenPercent(enabled: boolean)
+    espShowGenPercent = enabled
+end
+
+function ESP.SetPlayerState(enabled: boolean)
+    espPlayerState = enabled
+end
+
+function ESP.SetColor(kind: string, color: Color3)
+    if espColors[kind] then
+        espColors[kind] = color
+        for model, entry in pairs(tracked) do
+            if entry.kind == kind then
+                if entry.hl then
+                    entry.hl.FillColor = color
+                    entry.hl.OutlineColor = color
+                end
+                if entry.nameL then entry.nameL.TextColor3 = color end
+            end
+        end
+    end
+end
+
+function ESP.GetColors()
+    return espColors
+end
+
 function ESP.SetSelectedKinds(selected: any)
     local newSelected: { [string]: boolean } = {
         Generator = false,
         Pallet = false,
+        Window = false,
         SCP = false,
         Player = false
     }
@@ -938,6 +1104,67 @@ function ESP.SetSelectedKinds(selected: any)
     selectedKinds = newSelected
     ESP.UpdateStates()
 end
+
+-- =====================================================================
+-- PLAYER MODULE (Zoom, FOV)
+-- =====================================================================
+
+local PlayerConfig = {
+    UnlimitedZoom = false,
+    MaxDistance = 1000,
+    MinDistance = 0,
+    FOVEnabled = false,
+    FOV = 70,
+    DefaultFOV = workspace.CurrentCamera.FieldOfView
+}
+
+local function applyUnlimitedZoom()
+    if PlayerConfig.UnlimitedZoom then
+        LocalPlayer.CameraMaxZoomDistance = PlayerConfig.MaxDistance
+        LocalPlayer.CameraMinZoomDistance = PlayerConfig.MinDistance
+    else
+        LocalPlayer.CameraMaxZoomDistance = 128
+        LocalPlayer.CameraMinZoomDistance = 0.5
+    end
+end
+
+local function applyCameraFOV()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    if PlayerConfig.FOVEnabled then
+        cam.FieldOfView = PlayerConfig.FOV
+    else
+        cam.FieldOfView = PlayerConfig.DefaultFOV
+    end
+end
+
+-- Apply on respawn
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
+    applyUnlimitedZoom()
+    applyCameraFOV()
+end)
+
+local Player = {
+    SetUnlimitedZoom = function(enabled: boolean)
+        PlayerConfig.UnlimitedZoom = enabled
+        applyUnlimitedZoom()
+    end,
+    SetMaxZoomDistance = function(dist: number)
+        PlayerConfig.MaxDistance = dist
+        if PlayerConfig.UnlimitedZoom then
+            applyUnlimitedZoom()
+        end
+    end,
+    SetCustomFOV = function(enabled: boolean)
+        PlayerConfig.FOVEnabled = enabled
+        applyCameraFOV()
+    end,
+    SetFOV = function(fov: number)
+        PlayerConfig.FOV = fov
+        applyCameraFOV()
+    end,
+}
 
 -- =====================================================================
 -- AIM CONFIGURATION & LOGIC MODULE EXPORT
@@ -1030,7 +1257,8 @@ local Logic = {
         SetVeilShowFov = function(value: boolean)
             AIM_CONFIG.veilShowFov = value
         end,
-    }
+    },
+    Player = Player,
 }
 
 -- ============================================================
