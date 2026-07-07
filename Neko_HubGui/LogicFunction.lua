@@ -401,7 +401,6 @@ end
 -- AUTO SKILLCHECK MODULE
 -- =====================================================================
 local autoSkillcheckEnabled = false
-local scTriggered = false
 local scBusy = false
 
 local CONFIG_SC = {
@@ -446,18 +445,10 @@ RunService.RenderStepped:Connect(function()
 
     local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
     local gui = PlayerGui and PlayerGui:FindFirstChild("SkillCheckPromptGui")
-    if not gui then 
-        scTriggered = false
-        return 
-    end
+    if not gui then return end
 
     local check = gui:FindFirstChild("Check")
-    if not check or not check.Visible then
-        scTriggered = false
-        return
-    end
-
-    if scTriggered then return end
+    if not check or not check.Visible then return end
 
     local line = check:FindFirstChild("Line")
     local goal = check:FindFirstChild("Goal")
@@ -474,7 +465,6 @@ RunService.RenderStepped:Connect(function()
         or (lr >= startRange and lr <= endRange)
 
     if success then
-        scTriggered = true
         scBusy = true
         task.spawn(function()
             if game:GetService("UserInputService").TouchEnabled then
