@@ -40,6 +40,7 @@ local Combat = Logic and Logic.Combat
 local ESP = Logic and Logic.ESP
 local Aim = Logic and Logic.Aim
 local Player = Logic and Logic.Player
+local NekoConfig = Window.ConfigManager:Config("NekoHubConfig")
 
 -- Create Tabs
 local VisualTab = Window:Tab({ Title = "Visual", Icon = "eye" })
@@ -54,9 +55,11 @@ ParrySection:Toggle({
     Title = "Auto Parry",
     Desc = "Automatically parry killer attacks",
     Value = false,
+    Flag = "neko_parry",
     Callback = function(value: boolean)
         if Combat and Combat.SetAutoParry then
             Combat.SetAutoParry(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -64,9 +67,11 @@ ParrySection:Toggle({
 ParrySection:Slider({
     Title = "Parry Distance",
     Value = { Min = 5, Max = 25, Default = 9 },
+    Flag = "neko_parry_dist",
     Callback = function(value: number)
         if Combat and Combat.SetParryDistance then
             Combat.SetParryDistance(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -74,9 +79,11 @@ ParrySection:Slider({
 ParrySection:Slider({
     Title = "Dash Parry Distance",
     Value = { Min = 20, Max = 50, Default = 30 },
+    Flag = "neko_parry_dash",
     Callback = function(value: number)
         if Combat and Combat.SetDashParryDistance then
             Combat.SetDashParryDistance(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -86,9 +93,11 @@ DodgeSection:Toggle({
     Title = "Auto Dodge (Abysswalker)",
     Desc = "Automatically dodge Abysswalker skills",
     Value = false,
+    Flag = "neko_dodge",
     Callback = function(value: boolean)
         if Combat and Combat.SetAutoDodgeAbyss then
             Combat.SetAutoDodgeAbyss(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -96,9 +105,11 @@ DodgeSection:Toggle({
 DodgeSection:Slider({
     Title = "Dodge Distance",
     Value = { Min = 15, Max = 35, Default = 25 },
+    Flag = "neko_dodge_dist",
     Callback = function(value: number)
         if Combat and Combat.SetDodgeDistance then
             Combat.SetDodgeDistance(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -108,9 +119,11 @@ PalletSection:Toggle({
     Title = "Auto Drop Pallet",
     Desc = "Automatically drop nearby pallets when killer is close",
     Value = false,
+    Flag = "neko_pallet",
     Callback = function(value: boolean)
         if Combat and Combat.SetAutoPallet then
             Combat.SetAutoPallet(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -118,10 +131,12 @@ PalletSection:Toggle({
 PalletSection:Slider({
     Title = "Trigger Distance",
     Value = { Min = 5.0, Max = 25.0, Default = 13.2 },
+    Flag = "neko_pallet_dist",
     Callback = function(value: number)
         local stepped = math.round(value * 10) / 10
         if Combat and Combat.SetPalletDistance then
             Combat.SetPalletDistance(stepped)
+            NekoConfig:Save()
         end
     end
 })
@@ -131,9 +146,11 @@ SkillcheckSection:Toggle({
     Title = "Auto Skillcheck",
     Desc = "Automatically hit perfect skillchecks",
     Value = false,
+    Flag = "neko_skillcheck",
     Callback = function(value: boolean)
         if Combat and Combat.SetAutoSkillcheck then
             Combat.SetAutoSkillcheck(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -143,9 +160,11 @@ SkillcheckSection:Dropdown({
     Desc = "Crossing: detect line crossing zone. RotationHook: hook __index for perfect hit",
     Values = { "Crossing", "RotationHook" },
     Value = "Crossing",
+    Flag = "neko_skillcheck_mode",
     Callback = function(value: string)
         if Combat and Combat.SetSkillCheckMode then
             Combat.SetSkillCheckMode(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -155,9 +174,11 @@ VaultSection:Toggle({
     Title = "Fast Vault",
     Desc = "Replace vault animation with faster one",
     Value = false,
+    Flag = "neko_vault",
     Callback = function(value: boolean)
         if Combat and Combat.SetFastVault then
             Combat.SetFastVault(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -165,10 +186,12 @@ VaultSection:Toggle({
 VaultSection:Slider({
     Title = "Animation Speed",
     Value = { Min = 1.0, Max = 5.0, Default = 1.2 },
+    Flag = "neko_vault_speed",
     Callback = function(value: number)
         local stepped = math.round(value * 10) / 10
         if Combat and Combat.SetFastVaultSpeed then
             Combat.SetFastVaultSpeed(stepped)
+            NekoConfig:Save()
         end
     end
 })
@@ -179,9 +202,11 @@ ESPSection:Toggle({
     Title = "ESP",
     Desc = "Enable ESP visuals",
     Value = false,
+    Flag = "neko_esp",
     Callback = function(value: boolean)
         if ESP and ESP.SetMasterEnabled then
             ESP.SetMasterEnabled(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -192,9 +217,11 @@ ESPSection:Dropdown({
     Values = { "Player", "Generator", "Pallet", "Window", "Zombie" },
     Value = {},
     Multi = true,
+    Flag = "neko_esp_select",
     Callback = function(values: { string })
         if ESP and ESP.SetSelectedKinds then
             ESP.SetSelectedKinds(values)
+            NekoConfig:Save()
         end
     end
 })
@@ -203,9 +230,11 @@ ESPSection:Toggle({
     Title = "Show Distance",
     Desc = "Show distance on ESP labels",
     Value = true,
+    Flag = "neko_esp_distance",
     Callback = function(value: boolean)
         if ESP and ESP.SetShowDistance then
             ESP.SetShowDistance(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -214,9 +243,11 @@ ESPSection:Toggle({
     Title = "Show Name",
     Desc = "Show name on ESP labels",
     Value = true,
+    Flag = "neko_esp_name",
     Callback = function(value: boolean)
         if ESP and ESP.SetShowName then
             ESP.SetShowName(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -225,9 +256,11 @@ ESPSection:Toggle({
     Title = "Show Generator Percent",
     Desc = "Show repair progress on generator ESP",
     Value = true,
+    Flag = "neko_esp_genpct",
     Callback = function(value: boolean)
         if ESP and ESP.SetShowGenPercent then
             ESP.SetShowGenPercent(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -236,9 +269,11 @@ ESPSection:Toggle({
     Title = "Hide Done Generator",
     Desc = "Hide generator ESP when fully repaired (100%)",
     Value = false,
+    Flag = "neko_esp_hidedone",
     Callback = function(value: boolean)
         if ESP and ESP.SetHideDoneGen then
             ESP.SetHideDoneGen(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -247,9 +282,11 @@ ESPSection:Toggle({
     Title = "Player State",
     Desc = "Change color and show state for downed players",
     Value = false,
+    Flag = "neko_esp_playerstate",
     Callback = function(value: boolean)
         if ESP and ESP.SetPlayerState then
             ESP.SetPlayerState(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -259,9 +296,11 @@ local ESPColorSection = VisualTab:Section({ Title = "ESP Colors" })
 ESPColorSection:Colorpicker({
     Title = "Generator Color",
     Default = Color3.fromRGB(255, 170, 0),
+    Flag = "neko_color_generator",
     Callback = function(value: Color3)
         if ESP and ESP.SetColor then
             ESP.SetColor("Generator", value)
+            NekoConfig:Save()
         end
     end
 })
@@ -269,9 +308,11 @@ ESPColorSection:Colorpicker({
 ESPColorSection:Colorpicker({
     Title = "Pallet Color",
     Default = Color3.fromRGB(255, 215, 0),
+    Flag = "neko_color_pallet",
     Callback = function(value: Color3)
         if ESP and ESP.SetColor then
             ESP.SetColor("Pallet", value)
+            NekoConfig:Save()
         end
     end
 })
@@ -279,9 +320,11 @@ ESPColorSection:Colorpicker({
 ESPColorSection:Colorpicker({
     Title = "Window Color",
     Default = Color3.fromRGB(74, 255, 181),
+    Flag = "neko_color_window",
     Callback = function(value: Color3)
         if ESP and ESP.SetColor then
             ESP.SetColor("Window", value)
+            NekoConfig:Save()
         end
     end
 })
@@ -289,9 +332,11 @@ ESPColorSection:Colorpicker({
 ESPColorSection:Colorpicker({
     Title = "Zombie Color",
     Default = Color3.fromRGB(255, 60, 60),
+    Flag = "neko_color_zombie",
     Callback = function(value: Color3)
         if ESP and ESP.SetColor then
             ESP.SetColor("SCP", value)
+            NekoConfig:Save()
         end
     end
 })
@@ -299,9 +344,11 @@ ESPColorSection:Colorpicker({
 ESPColorSection:Colorpicker({
     Title = "Player Color",
     Default = Color3.fromRGB(0, 255, 170),
+    Flag = "neko_color_player",
     Callback = function(value: Color3)
         if ESP and ESP.SetColor then
             ESP.SetColor("Player", value)
+            NekoConfig:Save()
         end
     end
 })
@@ -309,9 +356,11 @@ ESPColorSection:Colorpicker({
 ESPColorSection:Colorpicker({
     Title = "Downed Player Color",
     Default = Color3.fromRGB(255, 0, 0),
+    Flag = "neko_color_downed",
     Callback = function(value: Color3)
         if ESP and ESP.SetColor then
             ESP.SetColor("PlayerDowned", value)
+            NekoConfig:Save()
         end
     end
 })
@@ -324,6 +373,7 @@ AimSection:Dropdown({
     Desc = "Select Aim Gun mode",
     Values = { "Disabled", "Silent Aim", "Aim Lock", "Both" },
     Value = "Both",
+    Flag = "neko_aimgun",
     Callback = function(value: string)
         if Aim then
             if value == "Disabled" then
@@ -339,6 +389,7 @@ AimSection:Dropdown({
                 Aim.SetSilentAim(true)
                 Aim.SetAimLock(true)
             end
+            NekoConfig:Save()
         end
     end
 })
@@ -348,9 +399,11 @@ AimSection:Dropdown({
     Desc = "Target team selection",
     Values = { "Killer", "Survivor" },
     Value = "Killer",
+    Flag = "neko_aim_target",
     Callback = function(value: string)
         if Aim and Aim.SetTargetMode then
             Aim.SetTargetMode(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -359,9 +412,11 @@ AimSection:Toggle({
     Title = "Show FOV",
     Desc = "Show FOV circle",
     Value = false,
+    Flag = "neko_aim_showfov",
     Callback = function(value: boolean)
         if Aim and Aim.SetShowFov then
             Aim.SetShowFov(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -369,9 +424,11 @@ AimSection:Toggle({
 AimSection:Slider({
     Title = "FOV Radius",
     Value = { Min = 30, Max = 300, Default = 120 },
+    Flag = "neko_aim_fov",
     Callback = function(value: number)
         if Aim and Aim.SetFovRadius then
             Aim.SetFovRadius(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -380,9 +437,11 @@ AimSection:Toggle({
     Title = "Wallcheck",
     Desc = "Aim only at visible targets",
     Value = true,
+    Flag = "neko_aim_wallcheck",
     Callback = function(value: boolean)
         if Aim and Aim.SetWallcheck then
             Aim.SetWallcheck(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -391,9 +450,11 @@ AimSection:Toggle({
     Title = "Predict Movement",
     Desc = "Predict target movement trajectory",
     Value = true,
+    Flag = "neko_aim_predict",
     Callback = function(value: boolean)
         if Aim and Aim.SetEnableLead then
             Aim.SetEnableLead(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -401,9 +462,11 @@ AimSection:Toggle({
 AimSection:Slider({
     Title = "Aim Smooth",
     Value = { Min = 0.05, Max = 1.0, Default = 0.25 },
+    Flag = "neko_aim_smooth",
     Callback = function(value: number)
         if Aim and Aim.SetSmooth then
             Aim.SetSmooth(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -416,6 +479,7 @@ AimVeilSection:Dropdown({
     Desc = "Select Aim Veil mode",
     Values = { "Disabled", "Silent Aim", "Aim Lock", "Both" },
     Value = "Both",
+    Flag = "neko_aimveil",
     Callback = function(value: string)
         if Aim then
             if value == "Disabled" then
@@ -431,6 +495,7 @@ AimVeilSection:Dropdown({
                 Aim.SetVeilSilentAim(true)
                 Aim.SetVeilAimLock(true)
             end
+            NekoConfig:Save()
         end
     end
 })
@@ -439,9 +504,11 @@ AimVeilSection:Toggle({
     Title = "Show FOV (Veil)",
     Desc = "Show FOV circle for Veil",
     Value = false,
+    Flag = "neko_aimveil_showfov",
     Callback = function(value: boolean)
         if Aim and Aim.SetVeilShowFov then
             Aim.SetVeilShowFov(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -449,9 +516,11 @@ AimVeilSection:Toggle({
 AimVeilSection:Slider({
     Title = "FOV Radius (Veil)",
     Value = { Min = 50, Max = 400, Default = 150 },
+    Flag = "neko_aimveil_fov",
     Callback = function(value: number)
         if Aim and Aim.SetVeilFovRadius then
             Aim.SetVeilFovRadius(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -460,9 +529,11 @@ AimVeilSection:Toggle({
     Title = "Predict Movement (Veil)",
     Desc = "Predict target movement trajectory for Veil",
     Value = true,
+    Flag = "neko_aimveil_predict",
     Callback = function(value: boolean)
         if Aim and Aim.SetVeilEnableLead then
             Aim.SetVeilEnableLead(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -474,9 +545,11 @@ PlayerSection:Toggle({
     Title = "Unlimited Zoom",
     Desc = "Unlock camera zoom distance",
     Value = false,
+    Flag = "neko_player_zoom",
     Callback = function(value: boolean)
         if Player and Player.SetUnlimitedZoom then
             Player.SetUnlimitedZoom(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -484,9 +557,11 @@ PlayerSection:Toggle({
 PlayerSection:Slider({
     Title = "Max Zoom Distance",
     Value = { Min = 100, Max = 5000, Default = 1000 },
+    Flag = "neko_player_zoomdist",
     Callback = function(value: number)
         if Player and Player.SetMaxZoomDistance then
             Player.SetMaxZoomDistance(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -495,9 +570,11 @@ PlayerSection:Toggle({
     Title = "Custom FOV",
     Desc = "Override default field of view",
     Value = false,
+    Flag = "neko_player_fov",
     Callback = function(value: boolean)
         if Player and Player.SetCustomFOV then
             Player.SetCustomFOV(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -505,9 +582,11 @@ PlayerSection:Toggle({
 PlayerSection:Slider({
     Title = "Camera FOV",
     Value = { Min = 40, Max = 120, Default = 70 },
+    Flag = "neko_player_fovval",
     Callback = function(value: number)
         if Player and Player.SetFOV then
             Player.SetFOV(value)
+            NekoConfig:Save()
         end
     end
 })
@@ -523,7 +602,12 @@ ThemeTab:Dropdown({
     Title = "Theme",
     Values = themes,
     Value = "NekoTheme",
+    Flag = "neko_theme",
     Callback = function(value: string)
         WindUI:SetTheme(value)
+        NekoConfig:Save()
     end
 })
+
+-- Load saved config
+NekoConfig:Load()
