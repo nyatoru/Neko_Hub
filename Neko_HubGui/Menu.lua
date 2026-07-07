@@ -138,6 +138,18 @@ SkillcheckSection:Toggle({
     end
 })
 
+SkillcheckSection:Dropdown({
+    Title = "Skillcheck Mode",
+    Desc = "Crossing: detect line crossing zone. RotationHook: hook __index for perfect hit",
+    Values = { "Crossing", "RotationHook" },
+    Value = "Crossing",
+    Callback = function(value: string)
+        if Combat and Combat.SetSkillCheckMode then
+            Combat.SetSkillCheckMode(value)
+        end
+    end
+})
+
 local VaultSection = CombatTab:Section({ Title = "Fast Vault" })
 VaultSection:Toggle({
     Title = "Fast Vault",

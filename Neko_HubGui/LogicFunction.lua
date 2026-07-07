@@ -404,6 +404,7 @@ end
 -- AUTO SKILLCHECK MODULE
 -- =====================================================================
 local autoSkillcheckEnabled = false
+local skillCheckMode = "Crossing" -- "Crossing" | "RotationHook"
 local scBusy = false
 local lastLineRotation: number? = nil
 
@@ -412,10 +413,28 @@ local CONFIG_SC = {
     zoneMax      = 116,
 }
 
+local SKILL_ROTATION = {
+    Normal = 115,
+    Perfect = 104,
+}
+
 local function pressSpace()
     local VIM = game:GetService("VirtualInputManager")
     VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
     VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+end
+
+local function fireSkillInput()
+    if not autoSkillcheckEnabled then return end
+    if firesignal then
+        pcall(firesignal, UserInputService.InputBegan, {
+            KeyCode = Enum.KeyCode.Space,
+            UserInputType = Enum.UserInputType.Keyboard,
+            UserInputState = Enum.UserInputState.Begin,
+        }, false)
+    else
+        pressSpace()
+    end
 end
 
 local TOUCH_ID = 8822
@@ -442,10 +461,188 @@ local function triggerMobileButton()
     end
 end
 
-RunService.RenderStepped:Connect(function()
-    if not autoSkillcheckEnabled or scBusy then return end
+-- Rotation Hook mode variables
+local indexOriginal: ((...any) -> any)? = nil
+local hookState: { active: boolean, original: ((...any) -> any)?, logic: any }? = nil
+local goalGUI: GuiObject? = nil
+local lineGUI: GuiObject? = nil
+local scCheckGUI: GuiObject? = nil
+local skillCheckEventConnections: { [RemoteEvent]: RBXScriptConnection } = {}
 
-    local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
+local function clearSkillCheckGui()
+    goalGUI = nil
+    lineGUI = nil
+    scCheckGUI = nil
+end
+
+local function refreshSkillCheckGui()
+    local prompt = PlayerGui:FindFirstChild("SkillCheckPromptGui")
+    local check = prompt and prompt:FindFirstChild("Check")
+    local goal = check and check:FindFirstChild("Goal")
+    local line = check and check:FindFirstChild("Line")
+
+    if goal and line then
+        goalGUI = goal :: GuiObject
+        lineGUI = line :: GuiObject
+        scCheckGUI = check :: GuiObject
+        return true
+    end
+
+    if scCheckGUI and not scCheckGUI.Parent then
+        clearSkillCheckGui()
+    end
+
+    return false
+end
+
+local function resolveGoalForLine(line)
+    if line == lineGUI and lineGUI and lineGUI.Parent and goalGUI and goalGUI.Parent then
+        return goalGUI
+    end
+
+    if typeof(line) ~= "Instance" or line.Name ~= "Line" then
+        return nil
+    end
+
+    local check = line.Parent
+    if not check or check.Name ~= "Check" then
+        return nil
+    end
+
+    local prompt = check.Parent
+    if not prompt or prompt.Name ~= "SkillCheckPromptGui" or prompt.Parent ~= PlayerGui then
+        return nil
+    end
+
+    local goal = check:FindFirstChild("Goal")
+    if not goal then
+        return nil
+    end
+
+    goalGUI = goal :: GuiObject
+    lineGUI = line :: GuiObject
+    scCheckGUI = check :: GuiObject
+    return goal
+end
+
+local function restoreRotationHook()
+    local state = hookState
+    if not state then return end
+
+    state.active = false
+    state.logic = nil
+    if state.original and hookmetamethod then
+        pcall(function()
+            hookmetamethod(game, "__index", state.original)
+        end)
+    end
+
+    indexOriginal = nil
+    hookState = nil
+end
+
+local function installRotationHook()
+    if indexOriginal or not (hookmetamethod and newcclosure) then return end
+
+    if hookState and hookState.original and hookState.logic ~= Logic then
+        pcall(function()
+            hookmetamethod(game, "__index", hookState.original)
+        end)
+        hookState = nil
+    end
+
+    local isCallerCheck = type(checkcaller) == "function" and checkcaller or function() return false end
+    local state = {
+        active = true,
+        logic = nil,
+        original = nil,
+    }
+
+    local ok, original = pcall(function()
+        return hookmetamethod(game, "__index", newcclosure(function(self, index)
+            if state.active
+                and not isCallerCheck()
+                and autoSkillcheckEnabled
+                and skillCheckMode == "RotationHook"
+                and index == "Rotation" then
+                local goal = resolveGoalForLine(self)
+                if goal then
+                    local rotation = SKILL_ROTATION.Perfect
+                    return rotation + goal.Rotation
+                end
+            end
+
+            local originalIndex = state.original or indexOriginal
+            if originalIndex then
+                return originalIndex(self, index)
+            end
+            return nil
+        end))
+    end)
+
+    if ok and type(original) == "function" then
+        indexOriginal = original
+        state.original = original
+        hookState = state
+    else
+        state.active = false
+    end
+end
+
+local function disconnectSkillCheckEvent(event)
+    local connection = skillCheckEventConnections[event]
+    if connection then
+        connection:Disconnect()
+        skillCheckEventConnections[event] = nil
+    end
+end
+
+local function connectSkillCheckEvent(event)
+    if skillCheckEventConnections[event] then return end
+
+    skillCheckEventConnections[event] = event.OnClientEvent:Connect(function()
+        if not autoSkillcheckEnabled or skillCheckMode ~= "RotationHook" then return end
+        refreshSkillCheckGui()
+        task.delay(0.7, fireSkillInput)
+    end)
+end
+
+local function syncSkillCheckEvents()
+    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    local seenEvents = {}
+
+    if remotes then
+        for _, groupName in ipairs({ "Generator", "Healing" }) do
+            local group = remotes:FindFirstChild(groupName)
+            local event = group and group:FindFirstChild("SkillCheckEvent")
+            if event and event:IsA("RemoteEvent") then
+                seenEvents[event] = true
+                connectSkillCheckEvent(event)
+            end
+        end
+    end
+
+    for event in pairs(skillCheckEventConnections) do
+        if not seenEvents[event] or not event.Parent then
+            disconnectSkillCheckEvent(event)
+        end
+    end
+end
+
+local function disconnectAllSkillCheckEvents()
+    local events = {}
+    for event in pairs(skillCheckEventConnections) do
+        table.insert(events, event)
+    end
+    for _, event in ipairs(events) do
+        disconnectSkillCheckEvent(event)
+    end
+end
+
+-- Crossing detection mode (original)
+RunService.RenderStepped:Connect(function()
+    if not autoSkillcheckEnabled or scBusy or skillCheckMode ~= "Crossing" then return end
+
     local gui = PlayerGui and PlayerGui:FindFirstChild("SkillCheckPromptGui")
     if not gui then
         lastLineRotation = nil
@@ -475,13 +672,10 @@ RunService.RenderStepped:Connect(function()
 
     local success = inZone(lr)
 
-    -- Also detect crossing: line was outside last frame, now past the zone
     if not success and lastLineRotation then
         local prev = lastLineRotation
-        -- Check if line crossed through the zone between frames
         local crossed = false
         if startRange > endRange then
-            -- Zone wraps around 360
             if prev <= endRange and lr >= startRange then
                 crossed = true
             elseif prev >= startRange and lr <= endRange then
@@ -500,7 +694,7 @@ RunService.RenderStepped:Connect(function()
     if success then
         scBusy = true
         task.spawn(function()
-            if game:GetService("UserInputService").TouchEnabled then
+            if UserInputService.TouchEnabled then
                 triggerMobileButton()
             else
                 pressSpace()
@@ -508,6 +702,16 @@ RunService.RenderStepped:Connect(function()
             task.wait(0.01)
             scBusy = false
         end)
+    end
+end)
+
+-- Rotation Hook mode: sync events periodically
+task.spawn(function()
+    while true do
+        if autoSkillcheckEnabled and skillCheckMode == "RotationHook" then
+            syncSkillCheckEvents()
+        end
+        task.wait(1)
     end
 end)
 
@@ -1471,6 +1675,22 @@ local Logic = {
         end,
         SetAutoSkillcheck = function(enabled: boolean)
             autoSkillcheckEnabled = enabled
+            if enabled and skillCheckMode == "RotationHook" then
+                installRotationHook()
+            elseif not enabled and skillCheckMode == "RotationHook" then
+                restoreRotationHook()
+                disconnectAllSkillCheckEvents()
+            end
+        end,
+        SetSkillCheckMode = function(mode: string)
+            local prev = skillCheckMode
+            skillCheckMode = mode
+            if mode == "RotationHook" and prev ~= "RotationHook" then
+                installRotationHook()
+            elseif mode ~= "RotationHook" and prev == "RotationHook" then
+                restoreRotationHook()
+                disconnectAllSkillCheckEvents()
+            end
         end,
         SetAutoPallet = function(enabled: boolean)
             autoPalletEnabled = enabled
