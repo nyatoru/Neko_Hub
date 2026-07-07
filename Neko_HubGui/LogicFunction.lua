@@ -2107,6 +2107,114 @@ local function initVeil()
     end
 end
 
+-- =====================================================================
+-- FLOATING AIM TOGGLE ICONS
+-- =====================================================================
+local function createFloatingIcon(name: string, tooltip: string)
+    local btn = Instance.new("TextButton")
+    btn.Name = "NekoAimToggle_" .. name
+    btn.Size = UDim2.new(0, 44, 0, 44)
+    btn.Position = UDim2.new(1, -54, 0.5, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    btn.BorderSizePixel = 0
+    btn.Text = name:sub(1, 1)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 20
+    btn.AutoButtonColor = false
+    btn.BackgroundTransparency = 0.15
+    btn.Draggable = true
+    btn.Active = true
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = btn
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 255, 255)
+    stroke.Thickness = 1.5
+    stroke.Transparency = 0.5
+    stroke.Parent = btn
+
+    local label = Instance.new("TextLabel")
+    label.Name = "Label"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = ""
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 10
+    label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    label.Parent = btn
+
+    return btn
+end
+
+local aimGunActive = true
+local aimVeilActive = true
+
+local aimGui = Instance.new("ScreenGui")
+aimGui.Name = "NekoAimFloatingIcons"
+aimGui.ResetOnSpawn = false
+aimGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+aimGui.Parent = gethui and gethui() or LocalPlayer:WaitForChild("PlayerGui")
+
+local gunBtn = createFloatingIcon("Gun", "Toggle Aim Gun")
+gunBtn.Parent = aimGui
+
+local veilBtn = createFloatingIcon("Veil", "Toggle Aim Veil")
+veilBtn.Position = UDim2.new(1, -54, 0.5, 50)
+veilBtn.Parent = aimGui
+
+local function updateAimGunIcon()
+    if aimGunActive then
+        gunBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    else
+        gunBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+    end
+end
+
+local function updateAimVeilIcon()
+    if aimVeilActive then
+        veilBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    else
+        veilBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+    end
+end
+
+gunBtn.MouseButton1Click:Connect(function()
+    aimGunActive = not aimGunActive
+    AIM_CONFIG.silentAimGun = aimGunActive
+    AIM_CONFIG.aimLock = aimGunActive
+    updateAimGunIcon()
+end)
+
+veilBtn.MouseButton1Click:Connect(function()
+    aimVeilActive = not aimVeilActive
+    AIM_CONFIG.veilSilentAim = aimVeilActive
+    AIM_CONFIG.veilAimLock = aimVeilActive
+    updateAimVeilIcon()
+end)
+
+-- Sync icons when aim config changes via dropdowns
+local function syncFloatingIcons()
+    aimGunActive = AIM_CONFIG.silentAimGun or AIM_CONFIG.aimLock
+    aimVeilActive = AIM_CONFIG.veilSilentAim or AIM_CONFIG.veilAimLock
+    updateAimGunIcon()
+    updateAimVeilIcon()
+end
+
+syncFloatingIcons()
+
+-- Hide/show and sync icons based on aim state
+RunService.RenderStepped:Connect(function()
+    local visible = (AIM_CONFIG.silentAimGun or AIM_CONFIG.aimLock or AIM_CONFIG.veilSilentAim or AIM_CONFIG.veilAimLock)
+    aimGui.Enabled = visible
+    aimGunActive = AIM_CONFIG.silentAimGun or AIM_CONFIG.aimLock
+    aimVeilActive = AIM_CONFIG.veilSilentAim or AIM_CONFIG.veilAimLock
+    updateAimGunIcon()
+    updateAimVeilIcon()
+end)
+
 -- ==================== INIT ========================
 initTwistOfFate()
 initVeil()
