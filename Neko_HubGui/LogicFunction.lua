@@ -2266,10 +2266,13 @@ syncFloatingIcons()
 
 -- Hide/show and sync icons based on aim state
 RunService.RenderStepped:Connect(function()
-    local visible = (AIM_CONFIG.silentAimGun or AIM_CONFIG.aimLock or AIM_CONFIG.veilSilentAim or AIM_CONFIG.veilAimLock)
-    aimGui.Enabled = visible
-    aimGunActive = AIM_CONFIG.silentAimGun or AIM_CONFIG.aimLock
-    aimVeilActive = AIM_CONFIG.veilSilentAim or AIM_CONFIG.veilAimLock
+    local gunActive = AIM_CONFIG.silentAimGun or AIM_CONFIG.aimLock
+    local veilActive = AIM_CONFIG.veilSilentAim or AIM_CONFIG.veilAimLock
+    aimGui.Enabled = gunActive or veilActive
+    gunBtn.Visible = gunActive
+    veilBtn.Visible = veilActive
+    aimGunActive = gunActive
+    aimVeilActive = veilActive
     updateAimGunIcon()
     updateAimVeilIcon()
 end)
