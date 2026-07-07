@@ -408,12 +408,6 @@ local function isFeatureAllowed(): boolean
 end
 
 LocalPlayer:GetPropertyChangedSignal("Team"):Connect(checkLobby)
-task.spawn(function()
-    while true do
-        checkLobby()
-        task.wait(3)
-    end
-end)
 checkLobby()
                 break
             end
