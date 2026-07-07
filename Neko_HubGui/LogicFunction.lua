@@ -10,6 +10,7 @@ local Teams             = game:GetService("Teams")
 local Workspace         = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Clean up any standalone UI if present
 pcall(function()
