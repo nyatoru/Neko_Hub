@@ -402,34 +402,38 @@ end
 -- =====================================================================
 local autoSkillcheckEnabled = false
 local scTriggered = false
+local scBusy = false
 
 local CONFIG_SC = {
     zoneMin      = 102,
     zoneMax      = 116,
 }
 
-local function doSkillcheckSuccess()
-    scTriggered = true
-    if game:GetService("UserInputService").TouchEnabled then
-        local VIM = game:GetService("VirtualInputManager")
-        local UIS = game:GetService("UserInputService")
-        local cx, cy = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
-        local TOUCH_ID = 8823
-        VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
-        task.delay(0.05, function()
-            VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
-        end)
-    else
-        local VIM = game:GetService("VirtualInputManager")
-        VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-        task.delay(0.05, function()
-            VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-        end)
-    end
+local function pressSpace()
+    local VIM = game:GetService("VirtualInputManager")
+    VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+    task.wait()
+    VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
 end
 
-RunService.Heartbeat:Connect(function()
-    if not autoSkillcheckEnabled then return end
+local function triggerMobileButton()
+    local VIM = game:GetService("VirtualInputManager")
+    local UIS = game:GetService("UserInputService")
+    local path = "Survivor-mob.Controls.action.check"
+    local current = UIS:FindFirstChild("TouchGui")
+        and UIS.TouchGui:FindFirstChild("TouchControlFrame")
+    -- fallback: use mouse position
+    local cx, cy = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
+    local TOUCH_ID = 8822
+    pcall(function()
+        VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
+        task.wait(0.01)
+        VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
+    end)
+end
+
+RunService.RenderStepped:Connect(function()
+    if not autoSkillcheckEnabled or scBusy then return end
 
     local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
     local gui = PlayerGui and PlayerGui:FindFirstChild("SkillCheckPromptGui")
@@ -450,13 +454,28 @@ RunService.Heartbeat:Connect(function()
     local goal = check:FindFirstChild("Goal")
     if not line or not goal then return end
 
-    local rotation = line.Rotation
-    local goalRotation = goal.Rotation
-    local minZone = CONFIG_SC.zoneMin + goalRotation
-    local maxZone = CONFIG_SC.zoneMax + goalRotation
+    local lr = line.Rotation % 360
+    local gr = goal.Rotation % 360
 
-    if rotation >= minZone and rotation <= maxZone then
-        doSkillcheckSuccess()
+    local startRange = (gr + CONFIG_SC.zoneMin) % 360
+    local endRange   = (gr + CONFIG_SC.zoneMax) % 360
+
+    local success =
+        (startRange > endRange and (lr >= startRange or lr <= endRange))
+        or (lr >= startRange and lr <= endRange)
+
+    if success then
+        scTriggered = true
+        scBusy = true
+        task.spawn(function()
+            if game:GetService("UserInputService").TouchEnabled then
+                triggerMobileButton()
+            else
+                pressSpace()
+            end
+            task.wait(0.05)
+            scBusy = false
+        end)
     end
 end)
 
