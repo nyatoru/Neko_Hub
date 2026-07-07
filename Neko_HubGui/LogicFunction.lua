@@ -402,6 +402,7 @@ end
 -- =====================================================================
 local autoSkillcheckEnabled = false
 local scBusy = false
+local lastLineRotation: number? = nil
 
 local CONFIG_SC = {
     zoneMin      = 102,
@@ -411,7 +412,6 @@ local CONFIG_SC = {
 local function pressSpace()
     local VIM = game:GetService("VirtualInputManager")
     VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-    task.wait()
     VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
 end
 
@@ -434,7 +434,6 @@ local function triggerMobileButton()
         pcall(function()
             local VIM = game:GetService("VirtualInputManager")
             VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
-            task.wait()
             VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
         end)
     end
@@ -445,10 +444,16 @@ RunService.RenderStepped:Connect(function()
 
     local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
     local gui = PlayerGui and PlayerGui:FindFirstChild("SkillCheckPromptGui")
-    if not gui then return end
+    if not gui then
+        lastLineRotation = nil
+        return
+    end
 
     local check = gui:FindFirstChild("Check")
-    if not check or not check.Visible then return end
+    if not check or not check.Visible then
+        lastLineRotation = nil
+        return
+    end
 
     local line = check:FindFirstChild("Line")
     local goal = check:FindFirstChild("Goal")
@@ -460,12 +465,38 @@ RunService.RenderStepped:Connect(function()
     local startRange = (gr + CONFIG_SC.zoneMin) % 360
     local endRange   = (gr + CONFIG_SC.zoneMax) % 360
 
-    local success =
-        (startRange > endRange and (lr >= startRange or lr <= endRange))
-        or (lr >= startRange and lr <= endRange)
+    local function inZone(r: number): boolean
+        return (startRange > endRange and (r >= startRange or r <= endRange))
+            or (r >= startRange and r <= endRange)
+    end
+
+    local success = inZone(lr)
+
+    -- Also detect crossing: line was outside last frame, now past the zone
+    if not success and lastLineRotation then
+        local prev = lastLineRotation
+        -- Check if line crossed through the zone between frames
+        local crossed = false
+        if startRange > endRange then
+            -- Zone wraps around 360
+            if prev <= endRange and lr >= startRange then
+                crossed = true
+            elseif prev >= startRange and lr <= endRange then
+                crossed = true
+            end
+        else
+            if prev < startRange and lr > endRange then
+                crossed = true
+            end
+        end
+        if crossed then success = true end
+    end
+
+    lastLineRotation = lr
 
     if success then
         scBusy = true
+        lastLineRotation = nil
         task.spawn(function()
             if game:GetService("UserInputService").TouchEnabled then
                 triggerMobileButton()
