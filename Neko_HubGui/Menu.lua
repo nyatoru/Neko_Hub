@@ -39,6 +39,7 @@ end)()
 local Combat = Logic and Logic.Combat
 local ESP = Logic and Logic.ESP
 local Aim = Logic and Logic.Aim
+local Player = Logic and Logic.Player
 
 -- Create Tabs
 local VisualTab = Window:Tab({ Title = "Visual", Icon = "eye" })
@@ -186,7 +187,7 @@ ESPSection:Toggle({
 
 local ESPColorSection = VisualTab:Section({ Title = "ESP Colors" })
 
-ESPColorSection:ColorPicker({
+ESPColorSection:Colorpicker({
     Title = "Generator Color",
     Default = Color3.fromRGB(255, 170, 0),
     Callback = function(value: Color3)
@@ -196,7 +197,7 @@ ESPColorSection:ColorPicker({
     end
 })
 
-ESPColorSection:ColorPicker({
+ESPColorSection:Colorpicker({
     Title = "Pallet Color",
     Default = Color3.fromRGB(255, 215, 0),
     Callback = function(value: Color3)
@@ -206,7 +207,7 @@ ESPColorSection:ColorPicker({
     end
 })
 
-ESPColorSection:ColorPicker({
+ESPColorSection:Colorpicker({
     Title = "Window Color",
     Default = Color3.fromRGB(74, 255, 181),
     Callback = function(value: Color3)
@@ -216,7 +217,7 @@ ESPColorSection:ColorPicker({
     end
 })
 
-ESPColorSection:ColorPicker({
+ESPColorSection:Colorpicker({
     Title = "Zombie Color",
     Default = Color3.fromRGB(255, 60, 60),
     Callback = function(value: Color3)
@@ -226,7 +227,7 @@ ESPColorSection:ColorPicker({
     end
 })
 
-ESPColorSection:ColorPicker({
+ESPColorSection:Colorpicker({
     Title = "Player Color",
     Default = Color3.fromRGB(0, 255, 170),
     Callback = function(value: Color3)
@@ -236,7 +237,7 @@ ESPColorSection:ColorPicker({
     end
 })
 
-ESPColorSection:ColorPicker({
+ESPColorSection:Colorpicker({
     Title = "Downed Player Color",
     Default = Color3.fromRGB(255, 0, 0),
     Callback = function(value: Color3)
