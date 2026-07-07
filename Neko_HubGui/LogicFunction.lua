@@ -381,8 +381,39 @@ local function triggerDodge()
                 task.delay(dodgeTriggerDelay, function()
                     if not isDodging and not dodgeSkillPending and killerDistance <= dodgeDistance and hasLineOfSight() then
                         doCrouch()
-                    end
-                end)
+    end
+end)
+
+-- =====================================================================
+-- LOBBY DETECTION — disable features while spectating
+-- =====================================================================
+local lobbyLocked = false
+
+local function isInGame()
+    local team = LocalPlayer.Team
+    if not team then return false end
+    local tn = string.lower(team.Name)
+    return not (tn == "spectator" or tn == "" or tn == "lobby")
+end
+
+local function checkLobby()
+    local nowInGame = isInGame()
+    if nowInGame == (not lobbyLocked) then return end
+    lobbyLocked = not nowInGame
+end
+
+local function isFeatureAllowed(): boolean
+    return not lobbyLocked
+end
+
+LocalPlayer:GetPropertyChangedSignal("Team"):Connect(checkLobby)
+task.spawn(function()
+    while true do
+        checkLobby()
+        task.wait(3)
+    end
+end)
+checkLobby()
                 break
             end
         end
@@ -1015,6 +1046,7 @@ local function ensureDistLoop()
     local lastDistances: { [Instance]: number } = {}
     task.spawn(function()
         while espMasterEnabled and next(tracked) ~= nil do
+            if lobbyLocked then task.wait(0.5) continue end
             local char = LocalPlayer.Character
             local root = if char then char:FindFirstChild("HumanoidRootPart") :: BasePart? else nil
             if root then
