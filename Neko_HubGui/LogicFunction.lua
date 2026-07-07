@@ -402,69 +402,30 @@ end
 -- =====================================================================
 local autoSkillcheckEnabled = false
 local scTriggered = false
-local SkillCheckResultEvent, SkillCheckEvent = nil, nil
-local SkillCheckEventConn = nil
-local generatorModel, generatorPoint = nil, nil
 
 local CONFIG_SC = {
     zoneMin      = 102,
     zoneMax      = 116,
-    zoneCenter   = 108,
-    cleanupDelay = 0.15,
 }
 
-local function resolveGeneratorRemotes()
-    if not autoSkillcheckEnabled then return end
-    local ok, genFolder = pcall(function()
-        return ReplicatedStorage:WaitForChild("Remotes", 5):WaitForChild("Generator", 5)
-    end)
-    if ok and genFolder then
-        SkillCheckResultEvent = genFolder:FindFirstChild("SkillCheckResultEvent")
-        SkillCheckEvent       = genFolder:FindFirstChild("SkillCheckEvent")
-        if SkillCheckEvent and not SkillCheckEventConn then
-            SkillCheckEventConn = SkillCheckEvent.OnClientEvent:Connect(function(gm, gp)
-                if not autoSkillcheckEnabled then return end
-                generatorModel, generatorPoint = gm, gp
-            end)
-        end
-    end
-end
-
-local function doSkillcheckSuccess(line, goal)
+local function doSkillcheckSuccess()
     scTriggered = true
-    
-    local frozenRot = CONFIG_SC.zoneCenter + goal.Rotation
-    pcall(function()
-        local TweenService = game:GetService("TweenService")
-        TweenService:Create(line, TweenInfo.new(0), { Rotation = frozenRot }):Play()
-        line.Rotation = frozenRot
-    end)
-
-    local char = LocalPlayer.Character
-    local scr = char and char:FindFirstChild("Skillcheck-gen")
-    if scr then
-        local great = scr:FindFirstChild("Great")
-        if great then pcall(function() great:Play() end) end
-    end
-
-    if SkillCheckResultEvent and generatorModel and generatorPoint then
-        pcall(function()
-            SkillCheckResultEvent:FireServer("success", 1, generatorModel, generatorPoint)
+    if game:GetService("UserInputService").TouchEnabled then
+        local VIM = game:GetService("VirtualInputManager")
+        local UIS = game:GetService("UserInputService")
+        local cx, cy = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
+        local TOUCH_ID = 8823
+        VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
+        task.delay(0.05, function()
+            VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
+        end)
+    else
+        local VIM = game:GetService("VirtualInputManager")
+        VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.delay(0.05, function()
+            VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
         end)
     end
-
-    task.delay(CONFIG_SC.cleanupDelay, function()
-        pcall(function()
-            local PlayerGui = LocalPlayer:FindFirstChild("PlayerGui")
-            local gui = PlayerGui and PlayerGui:FindFirstChild("SkillCheckPromptGui")
-            if gui then
-                local check = gui:FindFirstChild("Check")
-                if check then check.Visible = false end
-            end
-            line.Rotation = 0
-            goal.Rotation = 0
-        end)
-    end)
 end
 
 RunService.Heartbeat:Connect(function()
@@ -495,7 +456,7 @@ RunService.Heartbeat:Connect(function()
     local maxZone = CONFIG_SC.zoneMax + goalRotation
 
     if rotation >= minZone and rotation <= maxZone then
-        doSkillcheckSuccess(line, goal)
+        doSkillcheckSuccess()
     end
 end)
 
@@ -1209,18 +1170,6 @@ local Logic = {
         end,
         SetAutoSkillcheck = function(enabled: boolean)
             autoSkillcheckEnabled = enabled
-            if enabled then
-                task.spawn(resolveGeneratorRemotes)
-            else
-                if SkillCheckEventConn then
-                    SkillCheckEventConn:Disconnect()
-                    SkillCheckEventConn = nil
-                end
-                SkillCheckResultEvent = nil
-                SkillCheckEvent = nil
-                generatorModel = nil
-                generatorPoint = nil
-            end
         end
     },
     ESP = ESP,
