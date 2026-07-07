@@ -58,6 +58,7 @@ local TRIGGER_DISTANCE = 13.2
 
 -- Optimized Heartbeat for Killer Tracking (Only runs when Combat features are active)
 RunService.Heartbeat:Connect(function()
+    if lobbyLocked then return end
     if not autoParryEnabled and not autoDodgeEnabled then return end
     if not RootPart or not RootPart.Parent then return end
     
@@ -673,6 +674,7 @@ end
 
 -- Crossing detection mode (original)
 RunService.RenderStepped:Connect(function()
+    if lobbyLocked then return end
     if not autoSkillcheckEnabled or scBusy or skillCheckMode ~= "Crossing" then return end
 
     local gui = PlayerGui and PlayerGui:FindFirstChild("SkillCheckPromptGui")
@@ -784,6 +786,7 @@ CollectionService:GetInstanceRemovedSignal("PalletPoint"):Connect(function(inst)
 end)
 
 RunService.Heartbeat:Connect(function()
+    if lobbyLocked then return end
     if not autoPalletEnabled then return end
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
