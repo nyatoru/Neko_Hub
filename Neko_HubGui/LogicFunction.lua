@@ -741,6 +741,18 @@ local function hookRemoval(m: Instance, kind: string)
     end))
 end
 
+-- =====================================================================
+-- CENTRALIZED MAP SYNC (forward declarations)
+-- =====================================================================
+
+local mapContainer: Model? = nil
+local mapConns: { RBXScriptConnection } = {}
+
+local setMapContainer: (map: Model?) -> ()
+local resyncMap: () -> ()
+
+-- =====================================================================
+
 -- Generator ESP
 local function anchorGen(model: Model): BasePart?
     local body = model:FindFirstChild("GeneratorBody")
@@ -794,25 +806,7 @@ local function applyGen(model: Model)
 end
 
 local function startGenerator()
-    local Map = Workspace:FindFirstChild("Map")
-    if not Map then return end
-    for _, d in ipairs(Map:GetDescendants()) do
-        if d:IsA("Model") and string.find(string.lower(d.Name), "generator") then
-            applyGen(d)
-            hookRemoval(d, "Generator")
-        end
-    end
-    -- ponytail: use DescendantAdded to avoid replication race conditions where folders don't exist yet
-    pushConn("Generator", Map.DescendantAdded:Connect(function(desc)
-        if isKindActive("Generator") and desc:IsA("Model") and string.find(string.lower(desc.Name), "generator") then
-            task.defer(function()
-                if isKindActive("Generator") and desc.Parent and not tracked[desc] then
-                    applyGen(desc)
-                    hookRemoval(desc, "Generator")
-                end
-            end)
-        end
-    end))
+    resyncMap()
 end
 
 -- Pallet ESP
@@ -848,31 +842,7 @@ local function applyPallet(model: Model)
 end
 
 local function startPallet()
-    local Map = Workspace:FindFirstChild("Map")
-    if not Map then return end
-    for _, m in ipairs(Map:GetDescendants()) do
-        if m:IsA("Model") then
-            local nm = string.lower(m.Name)
-            if string.find(nm, "pallet") and not string.find(nm, "crate") then
-                applyPallet(m)
-                hookRemoval(m, "Pallet")
-            end
-        end
-    end
-    -- ponytail: use DescendantAdded to avoid replication race conditions where folders don't exist yet
-    pushConn("Pallet", Map.DescendantAdded:Connect(function(desc)
-        if isKindActive("Pallet") and desc:IsA("Model") then
-            local nm = string.lower(desc.Name)
-            if string.find(nm, "pallet") and not string.find(nm, "crate") then
-                task.defer(function()
-                    if isKindActive("Pallet") and desc.Parent and not tracked[desc] then
-                        applyPallet(desc)
-                        hookRemoval(desc, "Pallet")
-                    end
-                end)
-            end
-        end
-    end))
+    resyncMap()
     ensureDistLoop()
 end
 
@@ -888,24 +858,7 @@ local function applyWindow(model: Model)
 end
 
 local function startWindow()
-    local Map = Workspace:FindFirstChild("Map")
-    if not Map then return end
-    for _, m in ipairs(Map:GetDescendants()) do
-        if m:IsA("Model") and m.Name == "Window" then
-            applyWindow(m)
-            hookRemoval(m, "Window")
-        end
-    end
-    pushConn("Window", Map.DescendantAdded:Connect(function(desc)
-        if isKindActive("Window") and desc:IsA("Model") and desc.Name == "Window" then
-            task.defer(function()
-                if isKindActive("Window") and desc.Parent and not tracked[desc] then
-                    applyWindow(desc)
-                    hookRemoval(desc, "Window")
-                end
-            end)
-        end
-    end))
+    resyncMap()
     ensureDistLoop()
 end
 
@@ -933,26 +886,125 @@ local function applyZombie(model: Model)
 end
 
 local function startZombie()
-    local Map = Workspace:FindFirstChild("Map")
-    if not Map then return end
-    for _, d in ipairs(Map:GetDescendants()) do
-        if isZombie(d) then
-            applyZombie(d :: Model)
-            hookRemoval(d, "SCP")
-        end
-    end
-    pushConn("SCP", Map.DescendantAdded:Connect(function(desc)
-        if isKindActive("SCP") and desc:IsA("Model") then
-            task.defer(function()
-                if isKindActive("SCP") and desc.Parent and not tracked[desc] and isZombie(desc) then
-                    applyZombie(desc :: Model)
-                    hookRemoval(desc, "SCP")
-                end
-            end)
-        end
-    end))
+    resyncMap()
     ensureDistLoop()
 end
+
+-- =====================================================================
+-- CENTRALIZED MAP SYNC (implementations)
+-- =====================================================================
+
+local function isGenerator(m: Instance): boolean
+    return m:IsA("Model") and (string.find(string.lower(m.Name), "generator") or m:GetAttribute("RepairProgress") ~= nil)
+end
+
+local function isPallet(m: Instance): boolean
+    if not m:IsA("Model") then return false end
+    local nm = string.lower(m.Name)
+    return string.find(nm, "pallet") and not string.find(nm, "crate")
+end
+
+local function isWindowObj(m: Instance): boolean
+    return m:IsA("Model") and m.Name == "Window"
+end
+
+local function classifyAndTrack(obj: Instance)
+    if not obj:IsA("Model") then return end
+    task.defer(function()
+        if not mapContainer or not obj.Parent or tracked[obj] then return end
+        if isKindActive("Generator") and isGenerator(obj) then
+            applyGen(obj)
+            hookRemoval(obj, "Generator")
+        elseif isKindActive("Pallet") and isPallet(obj) then
+            applyPallet(obj)
+            hookRemoval(obj, "Pallet")
+        elseif isKindActive("Window") and isWindowObj(obj) then
+            applyWindow(obj)
+            hookRemoval(obj, "Window")
+        elseif isKindActive("SCP") and isZombie(obj) then
+            applyZombie(obj)
+            hookRemoval(obj, "SCP")
+        end
+    end)
+end
+
+local function classifyAndRemove(obj: Instance)
+    if tracked[obj] then
+        cleanup(obj)
+    end
+end
+
+local function disconnectMapSync()
+    for _, c in ipairs(mapConns) do pcall(function() c:Disconnect() end) end
+    table.clear(mapConns)
+end
+
+function setMapContainer(map: Model?)
+    if mapContainer == map then return end
+    disconnectMapSync()
+    for key, t in pairs(tracked) do
+        if t.kind ~= "Player" then cleanup(key) end
+    end
+    mapContainer = map
+    if not mapContainer then return end
+
+    table.insert(mapConns, mapContainer.DescendantAdded:Connect(function(obj)
+        task.defer(function()
+            if mapContainer and obj:IsDescendantOf(mapContainer) then
+                classifyAndTrack(obj)
+            end
+        end)
+    end))
+
+    table.insert(mapConns, mapContainer.DescendantRemoving:Connect(function(obj)
+        classifyAndRemove(obj)
+    end))
+
+    if mapContainer.Destroying then
+        table.insert(mapConns, mapContainer.Destroying:Connect(function()
+            if mapContainer == map then
+                disconnectMapSync()
+                for key, t in pairs(tracked) do
+                    if t.kind ~= "Player" then cleanup(key) end
+                end
+                mapContainer = nil
+            end
+        end))
+    end
+end
+
+function resyncMap()
+    local map = workspace:FindFirstChild("Map")
+    setMapContainer(map)
+    if not mapContainer then return end
+
+    local seen: { [Instance]: boolean } = {}
+    for _, obj in ipairs(mapContainer:GetDescendants()) do
+        if obj:IsA("Model") then
+            seen[obj] = true
+            if not tracked[obj] then
+                classifyAndTrack(obj)
+            end
+        end
+    end
+    for key, t in pairs(tracked) do
+        if t.kind ~= "Player" and not seen[key] then
+            cleanup(key)
+        end
+    end
+end
+
+-- Periodic resync every 10s
+task.spawn(function()
+    while true do
+        task.wait(10)
+        if espMasterEnabled and mapContainer then
+            resyncMap()
+        end
+    end
+end)
+
+-- =====================================================================
 
 -- Player ESP
 local function anchorPlayer(char: Model): BasePart?
@@ -1032,15 +1084,17 @@ local starters = {
     SCP = startZombie
 }
 
--- ponytail: listen for when the map spawns (e.g. entering game from lobby) and re-initialize ESPs
+-- Listen for map spawn and re-sync
+task.defer(function()
+    local map = workspace:FindFirstChild("Map")
+    if map then setMapContainer(map) end
+end)
 Workspace.ChildAdded:Connect(function(child)
     if child.Name == "Map" then
         task.defer(function()
+            setMapContainer(child)
             for kind, active in pairs(activeKinds) do
-                if active then
-                    stopKind(kind)
-                    starters[kind]()
-                end
+                if active then starters[kind]() end
             end
         end)
     end
