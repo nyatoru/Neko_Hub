@@ -52,6 +52,9 @@ local dashDistance = 30
 local autoDodgeEnabled = false
 local dodgeDistance = 25
 
+local autoPalletEnabled = false
+local TRIGGER_DISTANCE = 13.2
+
 -- Optimized Heartbeat for Killer Tracking (Only runs when Combat features are active)
 RunService.Heartbeat:Connect(function()
     if not autoParryEnabled and not autoDodgeEnabled then return end
@@ -505,6 +508,80 @@ RunService.RenderStepped:Connect(function()
             task.wait(0.01)
             scBusy = false
         end)
+    end
+end)
+
+-- =====================================================================
+-- AUTO DROP PALLET MODULE
+-- =====================================================================
+
+local PLAYER_INTERACT_DISTANCE = 6
+local droppedDebounce: { [BasePart]: boolean } = {}
+
+local function getKillerCharacter(): Model?
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Team and (string.find(string.lower(p.Team.Name), "killer") or string.find(string.lower(p.Team.Name), "hunter")) then
+            return p.Character
+        end
+    end
+    return nil
+end
+
+local palletPoints: { BasePart } = {}
+for _, p in ipairs(CollectionService:GetTagged("PalletPoint")) do
+    if p:IsA("BasePart") then
+        table.insert(palletPoints, p)
+    end
+end
+
+CollectionService:GetInstanceAddedSignal("PalletPoint"):Connect(function(inst)
+    if inst:IsA("BasePart") and not table.find(palletPoints, inst) then
+        table.insert(palletPoints, inst)
+    end
+end)
+
+CollectionService:GetInstanceRemovedSignal("PalletPoint"):Connect(function(inst)
+    local idx = table.find(palletPoints, inst)
+    if idx then
+        table.remove(palletPoints, idx)
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not autoPalletEnabled then return end
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum or hum.Health <= 50 then return end
+
+    if hrp:HasTag("doing action") or hrp:HasTag("carried") or char:GetAttribute("carried") then
+        return
+    end
+
+    local killerChar = getKillerCharacter()
+    local killerHrp = killerChar and killerChar:FindFirstChild("HumanoidRootPart") :: BasePart?
+    if not killerHrp then return end
+
+    for i = 1, #palletPoints do
+        local palletPoint = palletPoints[i]
+        if not droppedDebounce[palletPoint] then
+            local distToPlayer = (palletPoint.Position - hrp.Position).Magnitude
+            if distToPlayer <= PLAYER_INTERACT_DISTANCE then
+                local distToKiller = (palletPoint.Position - killerHrp.Position).Magnitude
+                if distToKiller <= TRIGGER_DISTANCE then
+                    droppedDebounce[palletPoint] = true
+                    local ok, PalletDropEvent = pcall(function()
+                        return ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Pallet"):WaitForChild("PalletDropEvent")
+                    end)
+                    if ok and PalletDropEvent then
+                        pcall(function() PalletDropEvent:FireServer(palletPoint) end)
+                    end
+                    task.delay(5, function()
+                        droppedDebounce[palletPoint] = nil
+                    end)
+                end
+            end
+        end
     end
 end)
 
@@ -1322,6 +1399,12 @@ local Logic = {
         end,
         SetAutoSkillcheck = function(enabled: boolean)
             autoSkillcheckEnabled = enabled
+        end,
+        SetAutoPallet = function(enabled: boolean)
+            autoPalletEnabled = enabled
+        end,
+        SetPalletDistance = function(dist: number)
+            TRIGGER_DISTANCE = dist
         end
     },
     ESP = ESP,
