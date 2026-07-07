@@ -416,20 +416,29 @@ local function pressSpace()
     VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
 end
 
+local TOUCH_ID = 8822
+local ActionPath = "Survivor-mob.Controls.action.check"
+
+local function GetActionTarget()
+    local current = LocalPlayer:FindFirstChild("PlayerGui")
+    for segment in string.gmatch(ActionPath, "[^%.]+") do
+        current = current and current:FindFirstChild(segment)
+    end
+    return current
+end
+
 local function triggerMobileButton()
-    local VIM = game:GetService("VirtualInputManager")
-    local UIS = game:GetService("UserInputService")
-    local path = "Survivor-mob.Controls.action.check"
-    local current = UIS:FindFirstChild("TouchGui")
-        and UIS.TouchGui:FindFirstChild("TouchControlFrame")
-    -- fallback: use mouse position
-    local cx, cy = UIS:GetMouseLocation().X, UIS:GetMouseLocation().Y
-    local TOUCH_ID = 8822
-    pcall(function()
-        VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
-        task.wait(0.01)
-        VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
-    end)
+    local b = GetActionTarget()
+    if b and b:IsA("GuiObject") then
+        local p, s, i = b.AbsolutePosition, b.AbsoluteSize, game:GetService("GuiService"):GetGuiInset()
+        local cx, cy = p.X + (s.X/2) + i.X, p.Y + (s.Y/2) + i.Y
+        pcall(function()
+            local VIM = game:GetService("VirtualInputManager")
+            VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
+            task.wait(0.01)
+            VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
+        end)
+    end
 end
 
 RunService.RenderStepped:Connect(function()
