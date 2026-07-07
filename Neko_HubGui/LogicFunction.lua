@@ -434,7 +434,7 @@ local function triggerMobileButton()
         pcall(function()
             local VIM = game:GetService("VirtualInputManager")
             VIM:SendTouchEvent(TOUCH_ID, 0, cx, cy)
-            task.wait(0.01)
+            task.wait()
             VIM:SendTouchEvent(TOUCH_ID, 2, cx, cy)
         end)
     end
@@ -472,7 +472,7 @@ RunService.RenderStepped:Connect(function()
             else
                 pressSpace()
             end
-            task.wait(0.05)
+            task.wait(0.01)
             scBusy = false
         end)
     end
