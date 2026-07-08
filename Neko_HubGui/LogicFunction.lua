@@ -2320,10 +2320,10 @@ local function showEndMatchNotification()
     local text: string
     local color: Color3
     if lastWasKiller then
-        text = "⚔ Match Over — You were the Killer"
+        text = "⚔ You are the Killer"
         color = Color3.fromRGB(255, 70, 80)
     elseif lastKillerName ~= "?" then
-        text = "⚠ Match Over — Killer: " .. lastKillerName
+        text = "⚠ Killer: " .. lastKillerName
         color = Color3.fromRGB(255, 200, 100)
     else
         return
