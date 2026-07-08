@@ -392,6 +392,7 @@ end
 -- LOBBY DETECTION — disable features while spectating
 -- =====================================================================
 local lobbyLocked = false
+local updateVeilBtnVisibility: () -> ()
 
 local function isInGame()
     local team = LocalPlayer.Team
@@ -416,6 +417,7 @@ local function checkLobby()
     else
         setLobbyEsp(true)
     end
+    pcall(updateVeilBtnVisibility)
 end
 
 LocalPlayer:GetPropertyChangedSignal("Team"):Connect(checkLobby)
@@ -2254,7 +2256,19 @@ local function syncFloatingIcons()
     updateAimVeilIcon()
 end
 
+local function isKillerTeam(): boolean
+    local team = LocalPlayer.Team
+    if not team then return false end
+    local tn = string.lower(team.Name)
+    return string.find(tn, "killer") ~= nil or string.find(tn, "hunter") ~= nil
+end
+
+local function updateVeilBtnVisibility()
+    veilBtn.Visible = not lobbyLocked and isKillerTeam()
+end
+
 syncFloatingIcons()
+updateVeilBtnVisibility()
 
 -- =====================================================================
 -- KILLER NOTIFICATION (shows on match start: spectator → Survivors/Killer)
