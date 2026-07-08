@@ -208,21 +208,18 @@ local function doParryPress()
             if ctrl:CanUse() then ctrl:Parry() end
         end)
         if not ok then parryController = nil end
-    else
-        warn("[Neko_Hub Debug] Controller is nil!")
     end
     task.delay(0.05, function() isAutoParrying = false end)
 end
 
 local function attemptParry(maxRange: number)
-    if not autoParryEnabled then warn("[Neko_Hub Debug] AutoParry disabled") return end
-    if killerDistance > maxRange then warn("[Neko_Hub Debug] Out of range:", killerDistance, ">", maxRange) return end
-    if not canParry() then warn("[Neko_Hub Debug] canParry() is false. CD:", isOnCooldown, "Silenced:", isSilenced) return end
-    if (os.clock() - lastPrePress) < rearmCooldown then warn("[Neko_Hub Debug] Rearm cooldown active") return end
-    if not hasLineOfSight() then warn("[Neko_Hub Debug] No line of sight") return end
-    if not isKillerFacing() then warn("[Neko_Hub Debug] Killer not facing") return end
+    if not autoParryEnabled then return end
+    if killerDistance > maxRange then return end
+    if not canParry() then return end
+    if (os.clock() - lastPrePress) < rearmCooldown then return end
+    if not hasLineOfSight() then return end
+    if not isKillerFacing() then return end
     
-    warn("[Neko_Hub Debug] attemptParry PASSED ALL CHECKS, calling doParryPress()")
     doParryPress()
 end
 
@@ -382,8 +379,14 @@ local function triggerDodge()
                 task.delay(dodgeTriggerDelay, function()
                     if not isDodging and not dodgeSkillPending and killerDistance <= dodgeDistance and hasLineOfSight() then
                         doCrouch()
-    end
-end)
+                    end
+                end)
+                break
+            end
+        end
+        dodgeSkillPending = false
+    end)
+end
 
 -- =====================================================================
 -- LOBBY DETECTION — disable features while spectating
@@ -395,16 +398,6 @@ local function isInGame()
     if not team then return false end
     local tn = string.lower(team.Name)
     return not (tn == "spectator" or tn == "" or tn == "lobby")
-end
-
-local function checkLobby()
-    local nowInGame = isInGame()
-    if nowInGame == (not lobbyLocked) then return end
-    lobbyLocked = not nowInGame
-end
-
-local function isFeatureAllowed(): boolean
-    return not lobbyLocked
 end
 
 local function setLobbyEsp(enabled: boolean)
@@ -431,12 +424,6 @@ checkLobby()
 onKillerAnim(function(plr, idRaw, animId)
     if idRaw and tostring(idRaw):find(ABYSS_SKILL_ID) then triggerDodge() end
 end)
-
-if KillerTeam then
-    hookKillerAnimators()
-    KillerTeam.PlayerAdded:Connect(hookKillerAnimators)
-    KillerTeam.PlayerRemoved:Connect(hookKillerAnimators)
-end
 
 
 -- =====================================================================
@@ -965,6 +952,7 @@ local connsByKind: { [string]: { RBXScriptConnection } } = {
     Pallet = {},
     Window = {},
     SCP = {},
+    Hook = {},
     Player = {}
 }
 
@@ -1668,11 +1656,10 @@ local function applyCameraFOV()
 end
 
 RunService.RenderStepped:Connect(function()
-    if PlayerConfig.FOVEnabled then
-        local cam = workspace.CurrentCamera
-        if cam and cam.FieldOfView ~= PlayerConfig.FOV then
-            cam.FieldOfView = PlayerConfig.FOV
-        end
+    if not PlayerConfig.FOVEnabled then return end
+    local cam = workspace.CurrentCamera
+    if cam and cam.FieldOfView ~= PlayerConfig.FOV then
+        cam.FieldOfView = PlayerConfig.FOV
     end
 end)
 
@@ -1830,13 +1817,6 @@ local Logic = {
 -- ============================================================
 -- Violence District | AIM (Side Script / Standalone)
 -- ============================================================
-
-local Players           = game:GetService("Players")
-local Teams             = game:GetService("Teams")
-local Workspace         = game:GetService("Workspace")
-local RunService        = game:GetService("RunService")
-local UserInputService  = game:GetService("UserInputService")
-local LocalPlayer       = Players.LocalPlayer
 
 -- ============================================================
 -- SHARED: namecall hook infra (buat silent aim)
@@ -2397,17 +2377,47 @@ task.spawn(function()
     if cfg.neko_esp_showdone ~= nil then espShowDoneGen = cfg.neko_esp_showdone end
     if cfg.neko_esp_playerstate ~= nil then espPlayerState = cfg.neko_esp_playerstate end
     if cfg.neko_parry ~= nil then autoParryEnabled = cfg.neko_parry end
+    if cfg.neko_parry_dist ~= nil then parryDistance = cfg.neko_parry_dist end
+    if cfg.neko_parry_dash ~= nil then dashDistance = cfg.neko_parry_dash end
     if cfg.neko_dodge ~= nil then autoDodgeEnabled = cfg.neko_dodge end
+    if cfg.neko_dodge_dist ~= nil then dodgeDistance = cfg.neko_dodge_dist end
     if cfg.neko_pallet ~= nil then autoPalletEnabled = cfg.neko_pallet end
+    if cfg.neko_pallet_dist ~= nil then TRIGGER_DISTANCE = cfg.neko_pallet_dist end
     if cfg.neko_skillcheck ~= nil then autoSkillcheckEnabled = cfg.neko_skillcheck end
+    if cfg.neko_skillcheck_mode ~= nil then skillCheckMode = cfg.neko_skillcheck_mode end
+    if autoSkillcheckEnabled and skillCheckMode == "RotationHook" then
+        installRotationHook()
+    end
     if cfg.neko_vault ~= nil then fastVaultEnabled = cfg.neko_vault end
+    if cfg.neko_vault_speed ~= nil then fastVaultSpeed = cfg.neko_vault_speed end
     if cfg.neko_player_zoom ~= nil then PlayerConfig.UnlimitedZoom = cfg.neko_player_zoom; applyUnlimitedZoom() end
+    if cfg.neko_player_zoomdist ~= nil then PlayerConfig.MaxDistance = cfg.neko_player_zoomdist; applyUnlimitedZoom() end
     if cfg.neko_player_fov ~= nil then PlayerConfig.FOVEnabled = cfg.neko_player_fov; applyCameraFOV() end
     if cfg.neko_player_fovval ~= nil then PlayerConfig.FOV = cfg.neko_player_fovval; applyCameraFOV() end
+    if cfg.neko_aimgun ~= nil then
+        local v = cfg.neko_aimgun
+        if v == "Disabled" then AIM_CONFIG.silentAimGun = false; AIM_CONFIG.aimLock = false
+        elseif v == "Silent Aim" then AIM_CONFIG.silentAimGun = true; AIM_CONFIG.aimLock = false
+        elseif v == "Aim Lock" then AIM_CONFIG.silentAimGun = false; AIM_CONFIG.aimLock = true
+        elseif v == "Both" then AIM_CONFIG.silentAimGun = true; AIM_CONFIG.aimLock = true
+        end
+    end
+    if cfg.neko_aim_target ~= nil then AIM_CONFIG.aimTargetMode = cfg.neko_aim_target end
     if cfg.neko_aim_wallcheck ~= nil then AIM_CONFIG.aimWallcheck = cfg.neko_aim_wallcheck end
     if cfg.neko_aim_showfov ~= nil then AIM_CONFIG.aimShowFov = cfg.neko_aim_showfov end
-    if cfg.neko_aimveil_showfov ~= nil then AIM_CONFIG.veilShowFov = cfg.neko_aimveil_showfov end
+    if cfg.neko_aim_fov ~= nil then AIM_CONFIG.aimFovRadius = cfg.neko_aim_fov end
     if cfg.neko_aim_predict ~= nil then AIM_CONFIG.aimEnableLead = cfg.neko_aim_predict end
+    if cfg.neko_aim_smooth ~= nil then AIM_CONFIG.aimSmooth = cfg.neko_aim_smooth end
+    if cfg.neko_aimveil ~= nil then
+        local v = cfg.neko_aimveil
+        if v == "Disabled" then AIM_CONFIG.veilSilentAim = false; AIM_CONFIG.veilAimLock = false
+        elseif v == "Silent Aim" then AIM_CONFIG.veilSilentAim = true; AIM_CONFIG.veilAimLock = false
+        elseif v == "Aim Lock" then AIM_CONFIG.veilSilentAim = false; AIM_CONFIG.veilAimLock = true
+        elseif v == "Both" then AIM_CONFIG.veilSilentAim = true; AIM_CONFIG.veilAimLock = true
+        end
+    end
+    if cfg.neko_aimveil_showfov ~= nil then AIM_CONFIG.veilShowFov = cfg.neko_aimveil_showfov end
+    if cfg.neko_aimveil_fov ~= nil then AIM_CONFIG.veilFovRadius = cfg.neko_aimveil_fov end
     if cfg.neko_aimveil_predict ~= nil then AIM_CONFIG.veilEnableLead = cfg.neko_aimveil_predict end
     if cfg.neko_color_hook ~= nil then espColors.Hook = cfg.neko_color_hook end
 end)
