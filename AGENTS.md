@@ -22,7 +22,7 @@ Loader.lua (bootstrap via executor)
 - All files use `--!strict`. Services via `game:GetService()`.
 - Executor globals used: `getgenv`, `gethui`, `hookmetamethod`, `newcclosure`, `checkcaller`, `isfile`, `readfile`, `writefile`, `makefolder`, `firesignal`.
 - UI: **WindUI** (Window → Tab → Section → Toggle/Slider/Dropdown/Colorpicker). API note: `Colorpicker` lowercase `p`.
-- Config: `local NekoConfig = Window.ConfigManager:Config("NekoHubConfig")` — saves to `WindUI/Neko_Hub/configs/NekoHubConfig.json`. Every element has a `Flag` (prefix `neko_`). Callbacks call `NekoConfig:Save()`; `NekoConfig:Load()` runs at end of `Menu.lua`.
+- Config: `local NekoConfig = Window.ConfigManager:Config("NekoHubConfig")` — saves to `WindUI/Neko_Hub/configs/NekoHubConfig.json`. Every element has a `Flag` (prefix `neko_`). Callbacks call `NekoConfig:Save()`. **Gotcha**: `NekoConfig:Load()` restores UI visuals but does NOT fire callbacks, so `LogicFunction.lua` also reads the config JSON directly at startup to sync logic state.
 - Theme: custom `"NekoTheme"` (pink), set in `Gui.lua`. `HideSearchBar = true`.
 - Remotes: `ReplicatedStorage:WaitForChild("Remotes"):...`
 - On-screen floating elements: `ScreenGui` parented to `gethui()` or `PlayerGui`, using `TextButton` + `UICorner` (circular, draggable).
