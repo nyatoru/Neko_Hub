@@ -2290,7 +2290,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- =====================================================================
--- KILLER NOTIFICATION (shows on match END, not start)
+-- KILLER NOTIFICATION (shows on match start: spectator → Survivors/Killer)
 -- =====================================================================
 local lastKillerName = "?"
 local lastWasKiller = false
@@ -2361,13 +2361,12 @@ local function showEndMatchNotification()
     end)
 end
 
--- Cache killer name during match, show on match end
+-- Cache killer name during match, show on match start
 local notifWasInGame = isInGame()
 local function onTeamChanged()
     local nowInGame = isInGame()
-    if nowInGame then
+    if nowInGame and not notifWasInGame then
         cacheKillerName()
-    elseif notifWasInGame then
         showEndMatchNotification()
     end
     notifWasInGame = nowInGame
